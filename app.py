@@ -179,12 +179,13 @@ if df.empty:
 # DATE
 # =====================================================
 
-df["Date"] = (
-    df.index.strftime("%d %b")
-)
+df["OnlyDate"] = pd.to_datetime(
+    df.index
+).date
 
-unique_dates = list(
-    df["Date"].unique()
+
+unique_dates = sorted(
+    df["OnlyDate"].unique()
 )
 
 grouped_dates = [
@@ -207,7 +208,7 @@ results = []
 for group in grouped_dates:
 
     group_df = df[
-        df["Date"].isin(group)
+    df["OnlyDate"].isin(group)
     ].copy()
 
     if len(group_df) == 0:
