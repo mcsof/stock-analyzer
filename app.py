@@ -162,9 +162,7 @@ if st.button("Run Analysis"):
             y="% Change Numeric"
         )
 
-        st.subheader("Result Table")
-        st.dataframe(result_df, use_container_width=True)
-
+        
         st.subheader("Transposed Result")
         st.dataframe(result_df.transpose(), use_container_width=True)
 
