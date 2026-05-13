@@ -145,6 +145,22 @@ if st.button("Run Analysis"):
             })
 
         result_df = pd.DataFrame(results)
+        
+        
+        
+        plot_df = result_df.copy()
+
+        plot_df["% Change Numeric"] = (
+            plot_df["% Change"]
+            .str.replace("%", "")
+            .astype(float)
+        )
+        
+        st.line_chart(
+            data=plot_df,
+            x="Date Group",
+            y="% Change Numeric"
+        )
 
         st.subheader("Result Table")
         st.dataframe(result_df, use_container_width=True)
