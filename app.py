@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -14,6 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
+st.title("📈 Stock Analytics Dashboard")
 
 # =====================================================
 # SIDEBAR
@@ -26,6 +28,8 @@ stock_input = st.sidebar.text_input(
     value="AAPL"
 )
 
+# -----------------------------------------------------
+
 period = st.sidebar.text_input(
     "Enter Period",
     value="5d"
@@ -35,14 +39,18 @@ st.sidebar.caption(
     "Examples: 1d, 2d, 5d, 1mo, 3mo, 1y"
 )
 
+# -----------------------------------------------------
+
 interval = st.sidebar.text_input(
     "Enter Interval",
     value="5m"
 )
 
 st.sidebar.caption(
-    "Examples: 1m, 5m, 10m, 15m, 30m, 60m, 1d"
+    "Examples: 1m, 2m, 5m, 15m, 30m, 60m, 1d"
 )
+
+# -----------------------------------------------------
 
 group_days = st.sidebar.number_input(
     "How Many Days Per Group?",
@@ -72,9 +80,6 @@ plot_columns = [
     "Lowest Time Numeric"
 ]
 
-# IMPORTANT:
-# No run button needed for graph changes
-
 selected_plots = st.sidebar.multiselect(
 
     "Select Graph Columns",
@@ -85,7 +90,15 @@ selected_plots = st.sidebar.multiselect(
 )
 
 # =====================================================
-# CACHE DATA
+# RUN BUTTON
+# =====================================================
+
+run_button = st.sidebar.button(
+    "▶ Run Analysis"
+)
+
+# =====================================================
+# CACHE
 # =====================================================
 
 @st.cache_data
@@ -108,6 +121,8 @@ def load_data(
         progress=False
     )
 
+    # -------------------------------------------------
+
     if isinstance(
         df.columns,
         pd.MultiIndex
@@ -118,38 +133,42 @@ def load_data(
             .get_level_values(0)
         )
 
+    # -------------------------------------------------
+
     df.dropna(inplace=True)
 
     return df
-
-# =====================================================
-# LOAD
-# =====================================================
-
-# =====================================================
-# RUN BUTTON
-# =====================================================
-
-run_button = st.sidebar.button("▶ Run Analysis")
 
 # =====================================================
 # SESSION STATE
 # =====================================================
 
 if "loaded_data" not in st.session_state:
+
     st.session_state.loaded_data = None
 
 # =====================================================
-# LOAD ONLY WHEN BUTTON CLICKED
+# LOAD DATA
 # =====================================================
 
 if run_button:
 
-    st.session_state.loaded_data = load_data(
-        stock_input,
-        period,
-        interval
-    )
+    try:
+
+        st.session_state.loaded_data = load_data(
+
+            stock_input,
+
+            period,
+
+            interval
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"Download Error: {e}"
+        )
 
 # =====================================================
 # USE SAVED DATA
@@ -163,30 +182,43 @@ df = st.session_state.loaded_data
 
 if df is None:
 
-    st.info("Click ▶ Run Analysis")
+    st.info(
+        "Click ▶ Run Analysis"
+    )
+
     st.stop()
 
 # =====================================================
-# EMPTY CHECK
+# EMPTY DATA
 # =====================================================
 
 if df.empty:
 
-    st.error("No data found")
+    st.error(
+        "No data found"
+    )
+
     st.stop()
 
 # =====================================================
-# DATE
+# DATE FIX
 # =====================================================
 
 df["OnlyDate"] = pd.to_datetime(
     df.index
 ).date
 
+# =====================================================
+# UNIQUE DATES
+# =====================================================
 
 unique_dates = sorted(
     df["OnlyDate"].unique()
 )
+
+# =====================================================
+# GROUPS
+# =====================================================
 
 grouped_dates = [
 
@@ -208,13 +240,23 @@ results = []
 for group in grouped_dates:
 
     group_df = df[
-    df["OnlyDate"].isin(group)
+        df["OnlyDate"].isin(group)
     ].copy()
+
+    # -------------------------------------------------
 
     if len(group_df) == 0:
         continue
 
-    date_label = " + ".join(group)
+    # -------------------------------------------------
+
+    date_label = " + ".join(
+        [str(d) for d in group]
+    )
+
+    # =================================================
+    # BASIC
+    # =================================================
 
     open_price = float(
         group_df["Open"].iloc[0]
@@ -236,6 +278,10 @@ for group in grouped_dates:
         group_df["Close"].mean()
     )
 
+    # =================================================
+    # CHANGE
+    # =================================================
+
     total_change = (
         close_price - open_price
     )
@@ -243,6 +289,10 @@ for group in grouped_dates:
     percent_change = (
         total_change / open_price
     ) * 100
+
+    # =================================================
+    # HIGH LOW TIMES
+    # =================================================
 
     highest_idx = (
         group_df["High"].idxmax()
@@ -343,7 +393,7 @@ for group in grouped_dates:
         avg_cross_gap = 0
 
     # =================================================
-    # INTERVAL
+    # INTERVAL MINUTES
     # =================================================
 
     if "m" in interval:
@@ -355,6 +405,10 @@ for group in grouped_dates:
     else:
 
         interval_minutes = 1440
+
+    # =================================================
+    # ABOVE BELOW
+    # =================================================
 
     above_avg = len(
 
@@ -452,7 +506,9 @@ plot_df[
 # LAYOUT
 # =====================================================
 
-left, right = st.columns([1.2, 2])
+left, right = st.columns(
+    [1.2, 2]
+)
 
 # =====================================================
 # TABLE
@@ -460,69 +516,34 @@ left, right = st.columns([1.2, 2])
 
 with left:
 
-    st.subheader("📋 Analysis Table")
+    st.subheader(
+        "📋 Analysis Table"
+    )
 
-transpose_df = result_df.transpose()
+    transpose_df = (
+        result_df.transpose()
+    )
 
-st.dataframe(
-    transpose_df,
-    use_container_width=True,
-    height=700
-)
+    st.dataframe(
+
+        transpose_df,
+
+        use_container_width=True,
+
+        height=900
+    )
 
 # =====================================================
-# BIG GRAPH
-# =====================================================
-
-# =====================================================
-# BIG GRAPH WITH MULTIPLE Y AXES
+# INTERACTIVE GRAPH
 # =====================================================
 
 with right:
 
-    st.subheader("📊 Analytics Graph")
-
-    fig, ax1 = plt.subplots(
-        figsize=(20, 10)
+    st.subheader(
+        "📊 Interactive Analytics Graph"
     )
 
-    axes = [ax1]
-
-    # -------------------------------------------------
-    # CREATE EXTRA Y AXES
-    # -------------------------------------------------
-
-    for i in range(1, len(selected_plots)):
-
-        ax_new = ax1.twinx()
-
-        ax_new.spines["right"].set_position(
-            ("outward", 80 * (i - 1))
-        )
-
-        axes.append(ax_new)
-
-    # -------------------------------------------------
-    # PLOT
-    # -------------------------------------------------
-
-# =====================================================
-# BIG GRAPH WITH COLORS
-# =====================================================
-
-with right:
-
-    st.subheader("📊 Analytics Graph")
-
-    fig, ax1 = plt.subplots(
-        figsize=(20, 10)
-    )
-
-    axes = [ax1]
-
-    # -------------------------------------------------
-    # COLORS
-    # -------------------------------------------------
+    fig = go.Figure()
 
     colors = [
 
@@ -538,113 +559,100 @@ with right:
         "magenta"
     ]
 
-    # -------------------------------------------------
-    # MARKERS
-    # -------------------------------------------------
-
     markers = [
 
-        "o",
-        "s",
-        "^",
-        "D",
-        "*",
-        "X",
-        "P",
-        "v",
-        "<",
-        ">"
+        "circle",
+        "square",
+        "diamond",
+        "cross",
+        "x",
+        "triangle-up",
+        "star"
     ]
 
     # -------------------------------------------------
-    # EXTRA AXES
-    # -------------------------------------------------
 
-    for i in range(1, len(selected_plots)):
+    for i, col in enumerate(
+        selected_plots
+    ):
 
-        ax_new = ax1.twinx()
+        fig.add_trace(
 
-        ax_new.spines["right"].set_position(
-            ("outward", 70 * (i - 1))
+            go.Scatter(
+
+                x=plot_df[
+                    "Date Group"
+                ],
+
+                y=plot_df[col],
+
+                mode='lines+markers',
+
+                name=col,
+
+                line=dict(
+
+                    color=colors[
+                        i % len(colors)
+                    ],
+
+                    width=4
+                ),
+
+                marker=dict(
+
+                    symbol=markers[
+                        i % len(markers)
+                    ],
+
+                    size=12
+                )
+            )
         )
 
-        axes.append(ax_new)
+    # =================================================
+    # LAYOUT
+    # =================================================
 
-    # -------------------------------------------------
-    # PLOT
-    # -------------------------------------------------
+    fig.update_layout(
 
-    for i, col in enumerate(selected_plots):
+        height=900,
 
-        color = colors[
-            i % len(colors)
-        ]
+        title=(
+            f"{stock_input} "
+            "Analytics Dashboard"
+        ),
 
-        marker = markers[
-            i % len(markers)
-        ]
+        title_font_size=28,
 
-        axes[i].plot(
+        hovermode="x unified",
 
-            plot_df["Date Group"],
+        template="plotly_dark",
 
-            plot_df[col],
+        xaxis=dict(
 
-            color=color,
+            title="Date Groups",
 
-            marker=marker,
+            tickangle=-45,
 
-            linewidth=3,
+            rangeslider=dict(
+                visible=True
+            )
+        ),
 
-            markersize=9,
-
-            label=col
+        yaxis=dict(
+            title="Values"
         )
-
-        axes[i].set_ylabel(
-            col,
-            fontsize=12,
-            color=color
-        )
-
-        axes[i].tick_params(
-            axis='y',
-            colors=color
-        )
-
-        axes[i].legend(
-            loc='upper left'
-        )
-
-    # -------------------------------------------------
-
-    ax1.set_xlabel(
-        "Date Groups",
-        fontsize=14
     )
 
-    plt.xticks(
-        rotation=45,
-        fontsize=11
-    )
+    # =================================================
+    # SHOW
+    # =================================================
 
-    ax1.set_title(
+    st.plotly_chart(
 
-        f"{stock_input} Multi Analytics Graph",
-
-        fontsize=24,
-
-        fontweight='bold'
-    )
-
-    ax1.grid(
-        True,
-        linestyle='--',
-        alpha=0.6
-    )
-
-    st.pyplot(
         fig,
+
         use_container_width=True
     )
 
@@ -653,6 +661,8 @@ with right:
 # =====================================================
 
 st.divider()
+
+# -----------------------------------------------------
 
 csv = result_df.to_csv(
     index=False
@@ -664,22 +674,33 @@ st.download_button(
 
     csv,
 
-    file_name=f"{stock_input}_analysis.csv",
+    file_name=(
+        f"{stock_input}_analysis.csv"
+    ),
 
     mime="text/csv"
 )
 
+# -----------------------------------------------------
+
 excel_buffer = BytesIO()
 
 with pd.ExcelWriter(
+
     excel_buffer,
+
     engine="openpyxl"
+
 ) as writer:
 
     result_df.to_excel(
+
         writer,
+
         index=False
     )
+
+# -----------------------------------------------------
 
 st.download_button(
 
@@ -687,7 +708,12 @@ st.download_button(
 
     excel_buffer.getvalue(),
 
-    file_name=f"{stock_input}_analysis.xlsx",
+    file_name=(
+        f"{stock_input}_analysis.xlsx"
+    ),
 
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    mime=(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 )
+```
