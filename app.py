@@ -148,20 +148,7 @@ if st.button("Run Analysis"):
         
         
         
-        plot_df = result_df.copy()
-
-        plot_df["% Change Numeric"] = (
-            plot_df["% Change"]
-            .str.replace("%", "")
-            .astype(float)
-        )
         
-        st.line_chart(
-            data=plot_df,
-            x="Date Group",
-            y="% Change Numeric"
-        )
-
         
         st.subheader("Transposed Result")
         st.dataframe(result_df.transpose(), use_container_width=True)
@@ -174,3 +161,40 @@ if st.button("Run Analysis"):
             "stock_analysis.csv",
             "text/csv"
         )
+        
+        plot_df = result_df.copy()
+
+        # Convert percentage column to numeric
+        plot_df["% Change Numeric"] = (
+            plot_df["% Change"]
+            .str.replace("%", "", regex=False)
+            .astype(float)
+        )
+        
+        # Numeric columns available for plotting
+        plot_columns = [
+            "Open",
+            "Close",
+            "Highest",
+            "Lowest",
+            "Average",
+            "Crossings",
+            "Avg Crossing Gap (mins)",
+            "Time Above Avg (mins)",
+            "Time Below Avg (mins)",
+            "% Change Numeric"
+        ]
+        
+        # User selects Y-axis column
+        selected_y = st.selectbox(
+            "Select data to plot on Y-axis",
+            plot_columns
+        )
+        
+        # Plot chart
+        st.line_chart(
+            data=plot_df,
+            x="Date Group",
+            y=selected_y
+        )
+        
