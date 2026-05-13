@@ -471,27 +471,53 @@ with left:
 
     st.subheader("📋 Analysis Table")
 
-    st.dataframe(
-        result_df,
-        use_container_width=True,
-        height=700
-    )
+transpose_df = result_df.transpose()
+
+st.dataframe(
+    transpose_df,
+    use_container_width=True,
+    height=700
+)
 
 # =====================================================
 # BIG GRAPH
+# =====================================================
+
+# =====================================================
+# BIG GRAPH WITH MULTIPLE Y AXES
 # =====================================================
 
 with right:
 
     st.subheader("📊 Analytics Graph")
 
-    fig, ax = plt.subplots(
-        figsize=(18, 9)
+    fig, ax1 = plt.subplots(
+        figsize=(20, 10)
     )
 
-    for col in selected_plots:
+    axes = [ax1]
 
-        ax.plot(
+    # -------------------------------------------------
+    # CREATE EXTRA Y AXES
+    # -------------------------------------------------
+
+    for i in range(1, len(selected_plots)):
+
+        ax_new = ax1.twinx()
+
+        ax_new.spines["right"].set_position(
+            ("outward", 80 * (i - 1))
+        )
+
+        axes.append(ax_new)
+
+    # -------------------------------------------------
+    # PLOT
+    # -------------------------------------------------
+
+    for i, col in enumerate(selected_plots):
+
+        axes[i].plot(
 
             plot_df["Date Group"],
 
@@ -499,49 +525,53 @@ with right:
 
             marker='o',
 
-            linewidth=4,
+            linewidth=3,
 
-            markersize=10,
+            markersize=8,
 
             label=col
         )
 
-    ax.set_title(
-        f"{stock_input} Analytics",
-        fontsize=24,
-        fontweight='bold'
-    )
+        axes[i].set_ylabel(
+            col,
+            fontsize=12
+        )
 
-    ax.set_xlabel(
+        axes[i].legend(
+            loc='upper left'
+        )
+
+    # -------------------------------------------------
+
+    ax1.set_xlabel(
         "Date Groups",
-        fontsize=16
-    )
-
-    ax.set_ylabel(
-        "Values",
-        fontsize=16
+        fontsize=14
     )
 
     plt.xticks(
         rotation=45,
-        fontsize=12
+        fontsize=11
     )
 
-    plt.yticks(
-        fontsize=12
+    ax1.set_title(
+
+        f"{stock_input} Multi-Axis Analytics",
+
+        fontsize=24,
+
+        fontweight='bold'
     )
 
-    ax.grid(
+    ax1.grid(
         True,
         linestyle='--',
         alpha=0.6
     )
 
-    ax.legend(
-        fontsize=12
+    st.pyplot(
+        fig,
+        use_container_width=True
     )
-
-    st.pyplot(fig, use_container_width=True)
 
 # =====================================================
 # DOWNLOADS
