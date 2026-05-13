@@ -27,31 +27,22 @@ stock_input = st.sidebar.text_input(
     value="AAPL"
 )
 
-period = st.sidebar.selectbox(
-    "Select Period",
-    [
-        "1d",
-        "5d",
-        "1mo",
-        "3mo",
-        "6mo",
-        "1y"
-    ],
-    index=1
+period = st.sidebar.text_input(
+    "Enter Period",
+    value="5d"
 )
 
-interval = st.sidebar.selectbox(
-    "Select Time Interval",
-    [
-        "1m",
-        "2m",
-        "5m",
-        "15m",
-        "30m",
-        "60m",
-        "1d"
-    ],
-    index=2
+st.sidebar.caption(
+    "Examples: 1d, 2d, 5d, 1mo, 3mo, 1y"
+)
+
+interval = st.sidebar.text_input(
+    "Enter Interval",
+    value="5m"
+)
+
+st.sidebar.caption(
+    "Examples: 1m, 5m, 10m, 15m, 30m, 60m, 1d"
 )
 
 group_days = st.sidebar.number_input(
@@ -515,7 +506,83 @@ with right:
     # PLOT
     # -------------------------------------------------
 
+# =====================================================
+# BIG GRAPH WITH COLORS
+# =====================================================
+
+with right:
+
+    st.subheader("📊 Analytics Graph")
+
+    fig, ax1 = plt.subplots(
+        figsize=(20, 10)
+    )
+
+    axes = [ax1]
+
+    # -------------------------------------------------
+    # COLORS
+    # -------------------------------------------------
+
+    colors = [
+
+        "blue",
+        "red",
+        "green",
+        "orange",
+        "purple",
+        "brown",
+        "pink",
+        "black",
+        "cyan",
+        "magenta"
+    ]
+
+    # -------------------------------------------------
+    # MARKERS
+    # -------------------------------------------------
+
+    markers = [
+
+        "o",
+        "s",
+        "^",
+        "D",
+        "*",
+        "X",
+        "P",
+        "v",
+        "<",
+        ">"
+    ]
+
+    # -------------------------------------------------
+    # EXTRA AXES
+    # -------------------------------------------------
+
+    for i in range(1, len(selected_plots)):
+
+        ax_new = ax1.twinx()
+
+        ax_new.spines["right"].set_position(
+            ("outward", 70 * (i - 1))
+        )
+
+        axes.append(ax_new)
+
+    # -------------------------------------------------
+    # PLOT
+    # -------------------------------------------------
+
     for i, col in enumerate(selected_plots):
+
+        color = colors[
+            i % len(colors)
+        ]
+
+        marker = markers[
+            i % len(markers)
+        ]
 
         axes[i].plot(
 
@@ -523,18 +590,26 @@ with right:
 
             plot_df[col],
 
-            marker='o',
+            color=color,
+
+            marker=marker,
 
             linewidth=3,
 
-            markersize=8,
+            markersize=9,
 
             label=col
         )
 
         axes[i].set_ylabel(
             col,
-            fontsize=12
+            fontsize=12,
+            color=color
+        )
+
+        axes[i].tick_params(
+            axis='y',
+            colors=color
         )
 
         axes[i].legend(
@@ -555,7 +630,7 @@ with right:
 
     ax1.set_title(
 
-        f"{stock_input} Multi-Axis Analytics",
+        f"{stock_input} Multi Analytics Graph",
 
         fontsize=24,
 
