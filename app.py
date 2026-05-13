@@ -24,7 +24,7 @@ ticker = st.text_input(
 period = st.selectbox(
     "Select period",
     ["5d", "1mo", "3mo"],
-    index=0
+    index=1
 )
 
 interval = st.selectbox(
@@ -40,13 +40,27 @@ group_days = st.number_input(
     value=1
 )
 
-selected_date = st.date_input(
-    "Select ending date",
-    value=pd.Timestamp.today()
-)
+# ------------------------------------------------
+# DATE RANGE
+# ------------------------------------------------
+col1, col2 = st.columns(2)
+
+with col1:
+
+    start_date = st.date_input(
+        "Start Date",
+        value=pd.Timestamp.today() - pd.Timedelta(days=5)
+    )
+
+with col2:
+
+    end_date = st.date_input(
+        "End Date",
+        value=pd.Timestamp.today()
+    )
 
 # ------------------------------------------------
-# CACHE DOWNLOAD
+# CACHE DATA
 # ------------------------------------------------
 @st.cache_data
 def load_data(ticker, period, interval):
@@ -60,7 +74,6 @@ def load_data(ticker, period, interval):
     )
 
     return data
-
 
 # ------------------------------------------------
 # RUN ANALYSIS
@@ -79,35 +92,41 @@ if st.button("Run Analysis"):
     # FIX MULTI INDEX
     # ------------------------------------------------
     if isinstance(df.columns, pd.MultiIndex):
-        df.columns = df.columns.get_level_values(0)
+
+        df.columns = (
+            df.columns.get_level_values(0)
+        )
 
     # ------------------------------------------------
-    # REMOVE EMPTY ROWS
+    # REMOVE NULLS
     # ------------------------------------------------
     df.dropna(inplace=True)
 
     # ------------------------------------------------
-    # FIX TIMEZONE ISSUE
+    # FIX TIMEZONE
     # ------------------------------------------------
     df.index = pd.to_datetime(
         df.index
     ).tz_localize(None)
 
     # ------------------------------------------------
-    # FILTER PREVIOUS 5 DAYS
+    # CONVERT DATES
     # ------------------------------------------------
-    selected_date = pd.Timestamp(
-        selected_date
-    )
+    start_date = pd.Timestamp(
+        start_date
+    ).date()
 
-    start_date = (
-        selected_date - pd.Timedelta(days=5)
-    )
+    end_date = pd.Timestamp(
+        end_date
+    ).date()
 
+    # ------------------------------------------------
+    # FILTER DATA
+    # ------------------------------------------------
     df = df[
-        (df.index >= start_date)
+        (df.index.date >= start_date)
         &
-        (df.index <= selected_date)
+        (df.index.date <= end_date)
     ]
 
     # ------------------------------------------------
@@ -160,7 +179,7 @@ if st.button("Run Analysis"):
             date_label = " + ".join(group)
 
             # ------------------------------------------------
-            # PRICE STATS
+            # BASIC PRICES
             # ------------------------------------------------
             open_price = float(
                 group_df["Open"].iloc[0]
@@ -183,7 +202,7 @@ if st.button("Run Analysis"):
             )
 
             # ------------------------------------------------
-            # CHANGE
+            # CHANGES
             # ------------------------------------------------
             total_change = (
                 close_price - open_price
@@ -213,7 +232,7 @@ if st.button("Run Analysis"):
             )
 
             # ------------------------------------------------
-            # CROSSINGS
+            # AVERAGE CROSSINGS
             # ------------------------------------------------
             crossing_times = []
 
@@ -291,7 +310,7 @@ if st.button("Run Analysis"):
                 avg_cross_gap = 0
 
             # ------------------------------------------------
-            # TIME ABOVE BELOW AVG
+            # ABOVE BELOW AVERAGE
             # ------------------------------------------------
             interval_minutes = int(
                 interval.replace("m", "")
@@ -385,11 +404,13 @@ if st.button("Run Analysis"):
             })
 
         # ------------------------------------------------
-        # RESULT DATAFRAME
+        # CREATE DATAFRAME
         # ------------------------------------------------
         result_df = pd.DataFrame(results)
 
-        # SAVE TO SESSION STATE
+        # ------------------------------------------------
+        # SAVE TO SESSION
+        # ------------------------------------------------
         st.session_state["result_df"] = result_df
 
 # ------------------------------------------------
@@ -400,7 +421,7 @@ if "result_df" in st.session_state:
     result_df = st.session_state["result_df"]
 
     # ------------------------------------------------
-    # SHOW DATAFRAME
+    # DATAFRAME
     # ------------------------------------------------
     st.subheader("📊 Analysis Result")
 
@@ -417,7 +438,7 @@ if "result_df" in st.session_state:
     ).columns.tolist()
 
     # ------------------------------------------------
-    # SELECT COLUMNS TO PLOT
+    # SELECT PLOT COLUMNS
     # ------------------------------------------------
     selected_columns = st.multiselect(
         "Select columns to plot",
@@ -426,7 +447,7 @@ if "result_df" in st.session_state:
     )
 
     # ------------------------------------------------
-    # CHART
+    # PLOT
     # ------------------------------------------------
     if selected_columns:
 
