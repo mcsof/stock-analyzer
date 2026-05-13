@@ -2,70 +2,79 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from io import BytesIO
 
-# ------------------------------------------------
+# =====================================================
 # PAGE CONFIG
-# ------------------------------------------------
+# =====================================================
+
 st.set_page_config(
-    page_title="Stock Analyzer",
+    page_title="Stock Analytics Dashboard",
     layout="wide"
 )
 
-st.title("📈 Stock Analyzer")
+# =====================================================
+# TITLE
+# =====================================================
 
-# ------------------------------------------------
-# USER INPUTS
-# ------------------------------------------------
-ticker = st.text_input(
-    "Enter stock ticker",
+st.title("📈 Stock Analytics Dashboard")
+
+# =====================================================
+# SIDEBAR SETTINGS
+# =====================================================
+
+st.sidebar.header("Settings")
+
+stock_input = st.sidebar.text_input(
+    "Stock Ticker",
     value="AAPL"
-).upper()
+)
 
-period = st.selectbox(
-    "Select period",
-    ["5d", "1mo", "3mo"],
+period = st.sidebar.selectbox(
+    "Period",
+    [
+        "1d",
+        "5d",
+        "1mo",
+        "3mo",
+        "6mo",
+        "1y",
+        "2y"
+    ],
     index=1
 )
 
-interval = st.selectbox(
-    "Select interval",
-    ["1m", "2m", "5m", "15m", "30m", "60m"],
+interval = st.sidebar.selectbox(
+    "Interval",
+    [
+        "1m",
+        "2m",
+        "5m",
+        "15m",
+        "30m",
+        "60m",
+        "90m",
+        "1d"
+    ],
     index=2
 )
 
-group_days = st.number_input(
-    "Group days",
+group_days = st.sidebar.number_input(
+    "Group Days",
     min_value=1,
-    max_value=10,
+    max_value=30,
     value=1
 )
 
-# ------------------------------------------------
-# DATE RANGE
-# ------------------------------------------------
-col1, col2 = st.columns(2)
+# =====================================================
+# DOWNLOAD DATA
+# =====================================================
 
-with col1:
-
-    start_date = st.date_input(
-        "Start Date",
-        value=pd.Timestamp.today() - pd.Timedelta(days=5)
-    )
-
-with col2:
-
-    end_date = st.date_input(
-        "End Date",
-        value=pd.Timestamp.today()
-    )
-
-# ------------------------------------------------
-# CACHE DATA
-# ------------------------------------------------
 @st.cache_data
 def load_data(ticker, period, interval):
 
-    data = yf.download(
+    df = yf.download(
         ticker,
         period=period,
         interval=interval,
@@ -73,402 +82,485 @@ def load_data(ticker, period, interval):
         progress=False
     )
 
-    return data
+    return df
 
-# ------------------------------------------------
-# RUN ANALYSIS
-# ------------------------------------------------
-if st.button("Run Analysis"):
+df = load_data(
+    stock_input,
+    period,
+    interval
+)
 
-    with st.spinner("Downloading stock data..."):
+# =====================================================
+# VALIDATION
+# =====================================================
 
-        df = load_data(
-            ticker,
-            period,
-            interval
+if len(df) == 0:
+
+    st.error("No data found.")
+
+    st.stop()
+
+# =====================================================
+# FIX MULTI INDEX
+# =====================================================
+
+if isinstance(df.columns, pd.MultiIndex):
+
+    df.columns = df.columns.get_level_values(0)
+
+df.dropna(inplace=True)
+
+# =====================================================
+# DATE COLUMN
+# =====================================================
+
+df["Date"] = df.index.strftime("%d %b")
+
+unique_dates = list(df["Date"].unique())
+
+# =====================================================
+# GROUP DAYS
+# =====================================================
+
+grouped_dates = [
+
+    unique_dates[i:i + group_days]
+
+    for i in range(
+        0,
+        len(unique_dates),
+        group_days
+    )
+]
+
+results = []
+
+# =====================================================
+# PROCESS DATA
+# =====================================================
+
+for group in grouped_dates:
+
+    group_df = df[
+        df["Date"].isin(group)
+    ].copy()
+
+    if len(group_df) == 0:
+
+        continue
+
+    # =====================================================
+    # LABEL
+    # =====================================================
+
+    date_label = " + ".join(group)
+
+    # =====================================================
+    # BASIC VALUES
+    # =====================================================
+
+    open_price = float(
+        group_df["Open"].iloc[0]
+    )
+
+    close_price = float(
+        group_df["Close"].iloc[-1]
+    )
+
+    highest_price = float(
+        group_df["High"].max()
+    )
+
+    lowest_price = float(
+        group_df["Low"].min()
+    )
+
+    average_price = float(
+        group_df["Close"].mean()
+    )
+
+    # =====================================================
+    # CHANGE
+    # =====================================================
+
+    total_change = (
+        close_price - open_price
+    )
+
+    percent_change = (
+        total_change / open_price
+    ) * 100
+
+    # =====================================================
+    # HIGH / LOW TIMES
+    # =====================================================
+
+    highest_idx = (
+        group_df["High"].idxmax()
+    )
+
+    lowest_idx = (
+        group_df["Low"].idxmin()
+    )
+
+    highest_time = (
+        highest_idx.strftime("%H:%M")
+    )
+
+    lowest_time = (
+        lowest_idx.strftime("%H:%M")
+    )
+
+    # =====================================================
+    # CROSSINGS
+    # =====================================================
+
+    crossing_times = []
+
+    for i in range(1, len(group_df)):
+
+        prev_price = (
+            group_df["Close"].iloc[i - 1]
         )
 
-    # ------------------------------------------------
-    # FIX MULTI INDEX
-    # ------------------------------------------------
-    if isinstance(df.columns, pd.MultiIndex):
-
-        df.columns = (
-            df.columns.get_level_values(0)
+        curr_price = (
+            group_df["Close"].iloc[i]
         )
 
-    # ------------------------------------------------
-    # REMOVE NULLS
-    # ------------------------------------------------
-    df.dropna(inplace=True)
+        crossed = (
 
-    # ------------------------------------------------
-    # FIX TIMEZONE
-    # ------------------------------------------------
-    df.index = pd.to_datetime(
-        df.index
-    ).tz_localize(None)
+            (
+                prev_price < average_price
+                and
+                curr_price > average_price
+            )
 
-    # ------------------------------------------------
-    # CONVERT DATES
-    # ------------------------------------------------
-    start_date = pd.Timestamp(
-        start_date
-    ).date()
+            or
 
-    end_date = pd.Timestamp(
-        end_date
-    ).date()
+            (
+                prev_price > average_price
+                and
+                curr_price < average_price
+            )
+        )
 
-    # ------------------------------------------------
-    # FILTER DATA
-    # ------------------------------------------------
-    df = df[
-        (df.index.date >= start_date)
-        &
-        (df.index.date <= end_date)
-    ]
+        if crossed:
 
-    # ------------------------------------------------
-    # CHECK DATA
-    # ------------------------------------------------
-    if len(df) == 0:
+            crossing_times.append(
+                group_df.index[i]
+            )
 
-        st.error(
-            "No data found for selected dates."
+    crossing_count = len(crossing_times)
+
+    # =====================================================
+    # AVG CROSS GAP
+    # =====================================================
+
+    if len(crossing_times) > 1:
+
+        gaps = []
+
+        for i in range(
+            1,
+            len(crossing_times)
+        ):
+
+            diff = (
+
+                crossing_times[i]
+
+                -
+
+                crossing_times[i - 1]
+
+            ).total_seconds() / 60
+
+            gaps.append(diff)
+
+        avg_cross_gap = round(
+            np.mean(gaps),
+            2
         )
 
     else:
 
-        results = []
+        avg_cross_gap = 0
 
-        # ------------------------------------------------
-        # DATE COLUMN
-        # ------------------------------------------------
-        df["Date"] = df.index.strftime(
-            "%d %b"
+    # =====================================================
+    # ABOVE / BELOW AVG
+    # =====================================================
+
+    if "m" in interval:
+
+        interval_minutes = int(
+            interval.replace("m", "")
         )
 
-        unique_dates = list(
-            df["Date"].unique()
+    elif "h" in interval:
+
+        interval_minutes = (
+            int(
+                interval.replace("h", "")
+            ) * 60
         )
 
-        grouped_dates = [
+    else:
 
-            unique_dates[i:i + group_days]
+        interval_minutes = 1440
 
-            for i in range(
-                0,
-                len(unique_dates),
-                group_days
-            )
+    above_avg = len(
+
+        group_df[
+            group_df["Close"] > average_price
         ]
+    )
 
-        # ------------------------------------------------
-        # ANALYSIS LOOP
-        # ------------------------------------------------
-        for group in grouped_dates:
-
-            group_df = df[
-                df["Date"].isin(group)
-            ].copy()
-
-            if len(group_df) == 0:
-                continue
-
-            date_label = " + ".join(group)
-
-            # ------------------------------------------------
-            # BASIC PRICES
-            # ------------------------------------------------
-            open_price = float(
-                group_df["Open"].iloc[0]
-            )
-
-            close_price = float(
-                group_df["Close"].iloc[-1]
-            )
-
-            highest_price = float(
-                group_df["High"].max()
-            )
-
-            lowest_price = float(
-                group_df["Low"].min()
-            )
+    below_avg = len(
 
-            average_price = float(
-                group_df["Close"].mean()
-            )
+        group_df[
+            group_df["Close"] < average_price
+        ]
+    )
 
-            # ------------------------------------------------
-            # CHANGES
-            # ------------------------------------------------
-            total_change = (
-                close_price - open_price
-            )
+    time_above_avg = (
+        above_avg * interval_minutes
+    )
 
-            percent_change = (
-                total_change / open_price
-            ) * 100
+    time_below_avg = (
+        below_avg * interval_minutes
+    )
 
-            # ------------------------------------------------
-            # HIGH LOW TIMES
-            # ------------------------------------------------
-            highest_idx = (
-                group_df["High"].idxmax()
-            )
+    # =====================================================
+    # SAVE RESULTS
+    # =====================================================
 
-            lowest_idx = (
-                group_df["Low"].idxmin()
-            )
+    results.append({
 
-            highest_time = (
-                highest_idx.strftime("%H:%M")
-            )
+        "Date Group": date_label,
 
-            lowest_time = (
-                lowest_idx.strftime("%H:%M")
-            )
+        "Open": round(
+            open_price,
+            2
+        ),
 
-            # ------------------------------------------------
-            # AVERAGE CROSSINGS
-            # ------------------------------------------------
-            crossing_times = []
+        "Close": round(
+            close_price,
+            2
+        ),
 
-            for i in range(
-                1,
-                len(group_df)
-            ):
+        "Change": round(
+            total_change,
+            2
+        ),
 
-                prev_price = (
-                    group_df["Close"].iloc[i - 1]
-                )
+        "% Change": round(
+            percent_change,
+            2
+        ),
 
-                curr_price = (
-                    group_df["Close"].iloc[i]
-                )
+        "Highest": round(
+            highest_price,
+            2
+        ),
 
-                crossed = (
+        "Highest Time": highest_time,
 
-                    (
-                        prev_price < average_price
-                        and
-                        curr_price > average_price
-                    )
+        "Lowest": round(
+            lowest_price,
+            2
+        ),
 
-                    or
+        "Lowest Time": lowest_time,
 
-                    (
-                        prev_price > average_price
-                        and
-                        curr_price < average_price
-                    )
-                )
+        "Average": round(
+            average_price,
+            2
+        ),
 
-                if crossed:
+        "Crossings": crossing_count,
 
-                    crossing_times.append(
-                        group_df.index[i]
-                    )
+        "Avg Crossing Gap (mins)": avg_cross_gap,
 
-            crossing_count = len(
-                crossing_times
-            )
+        "Time Above Avg (mins)": time_above_avg,
 
-            # ------------------------------------------------
-            # AVG CROSSING GAP
-            # ------------------------------------------------
-            if len(crossing_times) > 1:
+        "Time Below Avg (mins)": time_below_avg
+    })
 
-                gaps = []
+# =====================================================
+# RESULT DATAFRAME
+# =====================================================
 
-                for i in range(
-                    1,
-                    len(crossing_times)
-                ):
+result_df = pd.DataFrame(results)
 
-                    diff = (
+# =====================================================
+# DISPLAY TABLE
+# =====================================================
 
-                        crossing_times[i]
+st.subheader("📋 Analysis Table")
 
-                        -
+st.dataframe(
+    result_df,
+    use_container_width=True
+)
 
-                        crossing_times[i - 1]
+# =====================================================
+# CSV DOWNLOAD
+# =====================================================
 
-                    ).total_seconds() / 60
+csv = result_df.to_csv(
+    index=False
+).encode("utf-8")
 
-                    gaps.append(diff)
+st.download_button(
 
-                avg_cross_gap = round(
-                    np.mean(gaps),
-                    2
-                )
+    label="⬇ Download CSV",
 
-            else:
+    data=csv,
 
-                avg_cross_gap = 0
+    file_name=f"{stock_input}_analysis.csv",
 
-            # ------------------------------------------------
-            # ABOVE BELOW AVERAGE
-            # ------------------------------------------------
-            interval_minutes = int(
-                interval.replace("m", "")
-            )
+    mime="text/csv"
+)
 
-            above_avg = len(
+# =====================================================
+# EXCEL DOWNLOAD
+# =====================================================
 
-                group_df[
-                    group_df["Close"]
-                    > average_price
-                ]
-            )
+excel_buffer = BytesIO()
 
-            below_avg = len(
+with pd.ExcelWriter(
+    excel_buffer,
+    engine="openpyxl"
+) as writer:
 
-                group_df[
-                    group_df["Close"]
-                    < average_price
-                ]
-            )
+    result_df.to_excel(
+        writer,
+        index=False,
+        sheet_name="Analysis"
+    )
 
-            time_above_avg = (
-                above_avg * interval_minutes
-            )
+excel_data = excel_buffer.getvalue()
 
-            time_below_avg = (
-                below_avg * interval_minutes
-            )
+st.download_button(
 
-            # ------------------------------------------------
-            # SAVE RESULTS
-            # ------------------------------------------------
-            results.append({
+    label="⬇ Download Excel",
 
-                "Date Group": date_label,
+    data=excel_data,
 
-                "Stock": ticker,
+    file_name=f"{stock_input}_analysis.xlsx",
 
-                "Open": round(
-                    open_price,
-                    2
-                ),
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
-                "Close": round(
-                    close_price,
-                    2
-                ),
+# =====================================================
+# TIME TO NUMERIC
+# =====================================================
 
-                "Change": round(
-                    total_change,
-                    2
-                ),
+def time_to_minutes(t):
 
-                "% Change": round(
-                    percent_change,
-                    2
-                ),
+    h, m = map(
+        int,
+        t.split(":")
+    )
 
-                "Highest": round(
-                    highest_price,
-                    2
-                ),
+    return h * 60 + m
 
-                "Highest Time": highest_time,
+plot_df = result_df.copy()
 
-                "Lowest": round(
-                    lowest_price,
-                    2
-                ),
+plot_df[
+    "Highest Time Numeric"
+] = plot_df[
+    "Highest Time"
+].apply(
+    time_to_minutes
+)
 
-                "Lowest Time": lowest_time,
+plot_df[
+    "Lowest Time Numeric"
+] = plot_df[
+    "Lowest Time"
+].apply(
+    time_to_minutes
+)
 
-                "Average": round(
-                    average_price,
-                    2
-                ),
+# =====================================================
+# PLOT OPTIONS
+# =====================================================
 
-                "Crossings": crossing_count,
+plot_columns = [
 
-                "Avg Crossing Gap (mins)": (
-                    avg_cross_gap
-                ),
+    "Open",
+    "Close",
+    "Change",
+    "% Change",
+    "Highest",
+    "Lowest",
+    "Average",
+    "Crossings",
+    "Avg Crossing Gap (mins)",
+    "Time Above Avg (mins)",
+    "Time Below Avg (mins)",
+    "Highest Time Numeric",
+    "Lowest Time Numeric"
+]
 
-                "Time Above Avg (mins)": (
-                    time_above_avg
-                ),
+selected_plots = st.multiselect(
 
-                "Time Below Avg (mins)": (
-                    time_below_avg
-                )
-            })
+    "📊 Select Metrics To Plot",
 
-        # ------------------------------------------------
-        # CREATE DATAFRAME
-        # ------------------------------------------------
-        result_df = pd.DataFrame(results)
+    plot_columns,
 
-        # ------------------------------------------------
-        # SAVE TO SESSION
-        # ------------------------------------------------
-        st.session_state["result_df"] = result_df
+    default=["Close"]
+)
 
-# ------------------------------------------------
-# DISPLAY RESULTS
-# ------------------------------------------------
-if "result_df" in st.session_state:
+# =====================================================
+# PLOT
+# =====================================================
 
-    result_df = st.session_state["result_df"]
+if len(selected_plots) > 0:
 
-    # ------------------------------------------------
-    # DATAFRAME
-    # ------------------------------------------------
-    st.subheader("📊 Analysis Result")
+    fig, ax = plt.subplots(
+        figsize=(16, 7)
+    )
+
+    for col in selected_plots:
+
+        ax.plot(
+
+            plot_df["Date Group"],
+
+            plot_df[col],
+
+            marker='o',
+
+            label=col
+        )
+
+    ax.set_xlabel("Day")
+
+    ax.set_ylabel("Values")
+
+    ax.set_title(
+        f"{stock_input} Analytics"
+    )
+
+    plt.xticks(rotation=45)
+
+    ax.grid(True)
+
+    ax.legend()
+
+    st.pyplot(fig)
+
+# =====================================================
+# RAW DATA
+# =====================================================
+
+with st.expander(
+    "📄 Show Raw Downloaded Data"
+):
 
     st.dataframe(
-        result_df,
+        df,
         use_container_width=True
-    )
-
-    # ------------------------------------------------
-    # NUMERIC COLUMNS
-    # ------------------------------------------------
-    numeric_columns = result_df.select_dtypes(
-        include=["number"]
-    ).columns.tolist()
-
-    # ------------------------------------------------
-    # SELECT PLOT COLUMNS
-    # ------------------------------------------------
-    selected_columns = st.multiselect(
-        "Select columns to plot",
-        numeric_columns,
-        default=["% Change"]
-    )
-
-    # ------------------------------------------------
-    # PLOT
-    # ------------------------------------------------
-    if selected_columns:
-
-        st.subheader("📈 Chart")
-
-        st.line_chart(
-            data=result_df,
-            x="Date Group",
-            y=selected_columns
-        )
-
-    # ------------------------------------------------
-    # DOWNLOAD CSV
-    # ------------------------------------------------
-    csv = result_df.to_csv(
-        index=False
-    )
-
-    st.download_button(
-        "Download CSV",
-        csv,
-        "stock_analysis.csv",
-        "text/csv"
     )
