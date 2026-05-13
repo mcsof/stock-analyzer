@@ -136,11 +136,45 @@ def load_data(
 # LOAD
 # =====================================================
 
-df = load_data(
-    stock_input,
-    period,
-    interval
-)
+# =====================================================
+# RUN BUTTON
+# =====================================================
+
+run_button = st.sidebar.button("▶ Run Analysis")
+
+# =====================================================
+# SESSION STATE
+# =====================================================
+
+if "loaded_data" not in st.session_state:
+    st.session_state.loaded_data = None
+
+# =====================================================
+# LOAD ONLY WHEN BUTTON CLICKED
+# =====================================================
+
+if run_button:
+
+    st.session_state.loaded_data = load_data(
+        stock_input,
+        period,
+        interval
+    )
+
+# =====================================================
+# USE SAVED DATA
+# =====================================================
+
+df = st.session_state.loaded_data
+
+# =====================================================
+# EMPTY CHECK
+# =====================================================
+
+if df is None:
+
+    st.info("Click ▶ Run Analysis")
+    st.stop()
 
 # =====================================================
 # EMPTY CHECK
