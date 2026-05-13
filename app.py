@@ -14,7 +14,7 @@ st.set_page_config(
 st.title("📈 Stock Analyzer")
 
 # ------------------------------------------------
-# INPUTS
+# USER INPUTS
 # ------------------------------------------------
 ticker = st.text_input(
     "Enter stock ticker",
@@ -63,7 +63,7 @@ def load_data(ticker, period, interval):
 
 
 # ------------------------------------------------
-# RUN ANALYSIS BUTTON
+# RUN ANALYSIS
 # ------------------------------------------------
 if st.button("Run Analysis"):
 
@@ -75,29 +75,44 @@ if st.button("Run Analysis"):
             interval
         )
 
-    # --------------------------------------------
-    # FIX MULTIINDEX COLUMNS
-    # --------------------------------------------
+    # ------------------------------------------------
+    # FIX MULTI INDEX
+    # ------------------------------------------------
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
+    # ------------------------------------------------
+    # REMOVE EMPTY ROWS
+    # ------------------------------------------------
     df.dropna(inplace=True)
 
-    # --------------------------------------------
-    # FILTER PREVIOUS 5 DAYS FROM SELECTED DATE
-    # --------------------------------------------
-    selected_date = pd.Timestamp(selected_date)
+    # ------------------------------------------------
+    # FIX TIMEZONE ISSUE
+    # ------------------------------------------------
+    df.index = pd.to_datetime(
+        df.index
+    ).tz_localize(None)
 
-    start_date = selected_date - pd.Timedelta(days=5)
+    # ------------------------------------------------
+    # FILTER PREVIOUS 5 DAYS
+    # ------------------------------------------------
+    selected_date = pd.Timestamp(
+        selected_date
+    )
+
+    start_date = (
+        selected_date - pd.Timedelta(days=5)
+    )
 
     df = df[
-        (df.index >= start_date) &
+        (df.index >= start_date)
+        &
         (df.index <= selected_date)
     ]
 
-    # --------------------------------------------
+    # ------------------------------------------------
     # CHECK DATA
-    # --------------------------------------------
+    # ------------------------------------------------
     if len(df) == 0:
 
         st.error(
@@ -108,15 +123,21 @@ if st.button("Run Analysis"):
 
         results = []
 
-        # ----------------------------------------
+        # ------------------------------------------------
         # DATE COLUMN
-        # ----------------------------------------
-        df["Date"] = df.index.strftime("%d %b")
+        # ------------------------------------------------
+        df["Date"] = df.index.strftime(
+            "%d %b"
+        )
 
-        unique_dates = list(df["Date"].unique())
+        unique_dates = list(
+            df["Date"].unique()
+        )
 
         grouped_dates = [
+
             unique_dates[i:i + group_days]
+
             for i in range(
                 0,
                 len(unique_dates),
@@ -124,9 +145,9 @@ if st.button("Run Analysis"):
             )
         ]
 
-        # ----------------------------------------
+        # ------------------------------------------------
         # ANALYSIS LOOP
-        # ----------------------------------------
+        # ------------------------------------------------
         for group in grouped_dates:
 
             group_df = df[
@@ -138,9 +159,9 @@ if st.button("Run Analysis"):
 
             date_label = " + ".join(group)
 
-            # ------------------------------------
-            # BASIC STATS
-            # ------------------------------------
+            # ------------------------------------------------
+            # PRICE STATS
+            # ------------------------------------------------
             open_price = float(
                 group_df["Open"].iloc[0]
             )
@@ -161,6 +182,9 @@ if st.button("Run Analysis"):
                 group_df["Close"].mean()
             )
 
+            # ------------------------------------------------
+            # CHANGE
+            # ------------------------------------------------
             total_change = (
                 close_price - open_price
             )
@@ -169,9 +193,9 @@ if st.button("Run Analysis"):
                 total_change / open_price
             ) * 100
 
-            # ------------------------------------
+            # ------------------------------------------------
             # HIGH LOW TIMES
-            # ------------------------------------
+            # ------------------------------------------------
             highest_idx = (
                 group_df["High"].idxmax()
             )
@@ -188,12 +212,15 @@ if st.button("Run Analysis"):
                 lowest_idx.strftime("%H:%M")
             )
 
-            # ------------------------------------
-            # AVERAGE CROSSINGS
-            # ------------------------------------
+            # ------------------------------------------------
+            # CROSSINGS
+            # ------------------------------------------------
             crossing_times = []
 
-            for i in range(1, len(group_df)):
+            for i in range(
+                1,
+                len(group_df)
+            ):
 
                 prev_price = (
                     group_df["Close"].iloc[i - 1]
@@ -204,12 +231,15 @@ if st.button("Run Analysis"):
                 )
 
                 crossed = (
+
                     (
                         prev_price < average_price
                         and
                         curr_price > average_price
                     )
+
                     or
+
                     (
                         prev_price > average_price
                         and
@@ -218,6 +248,7 @@ if st.button("Run Analysis"):
                 )
 
                 if crossed:
+
                     crossing_times.append(
                         group_df.index[i]
                     )
@@ -226,9 +257,9 @@ if st.button("Run Analysis"):
                 crossing_times
             )
 
-            # ------------------------------------
-            # AVG CROSS GAP
-            # ------------------------------------
+            # ------------------------------------------------
+            # AVG CROSSING GAP
+            # ------------------------------------------------
             if len(crossing_times) > 1:
 
                 gaps = []
@@ -239,8 +270,13 @@ if st.button("Run Analysis"):
                 ):
 
                     diff = (
+
                         crossing_times[i]
-                        - crossing_times[i - 1]
+
+                        -
+
+                        crossing_times[i - 1]
+
                     ).total_seconds() / 60
 
                     gaps.append(diff)
@@ -254,14 +290,15 @@ if st.button("Run Analysis"):
 
                 avg_cross_gap = 0
 
-            # ------------------------------------
+            # ------------------------------------------------
             # TIME ABOVE BELOW AVG
-            # ------------------------------------
+            # ------------------------------------------------
             interval_minutes = int(
                 interval.replace("m", "")
             )
 
             above_avg = len(
+
                 group_df[
                     group_df["Close"]
                     > average_price
@@ -269,6 +306,7 @@ if st.button("Run Analysis"):
             )
 
             below_avg = len(
+
                 group_df[
                     group_df["Close"]
                     < average_price
@@ -283,9 +321,9 @@ if st.button("Run Analysis"):
                 below_avg * interval_minutes
             )
 
-            # ------------------------------------
-            # SAVE RESULT
-            # ------------------------------------
+            # ------------------------------------------------
+            # SAVE RESULTS
+            # ------------------------------------------------
             results.append({
 
                 "Date Group": date_label,
@@ -346,14 +384,13 @@ if st.button("Run Analysis"):
                 )
             })
 
-        # ----------------------------------------
+        # ------------------------------------------------
         # RESULT DATAFRAME
-        # ----------------------------------------
+        # ------------------------------------------------
         result_df = pd.DataFrame(results)
 
-        # SAVE TO SESSION
+        # SAVE TO SESSION STATE
         st.session_state["result_df"] = result_df
-
 
 # ------------------------------------------------
 # DISPLAY RESULTS
@@ -362,9 +399,9 @@ if "result_df" in st.session_state:
 
     result_df = st.session_state["result_df"]
 
-    # --------------------------------------------
-    # SHOW DATA
-    # --------------------------------------------
+    # ------------------------------------------------
+    # SHOW DATAFRAME
+    # ------------------------------------------------
     st.subheader("📊 Analysis Result")
 
     st.dataframe(
@@ -372,25 +409,25 @@ if "result_df" in st.session_state:
         use_container_width=True
     )
 
-    # --------------------------------------------
-    # AUTO NUMERIC COLUMNS
-    # --------------------------------------------
+    # ------------------------------------------------
+    # NUMERIC COLUMNS
+    # ------------------------------------------------
     numeric_columns = result_df.select_dtypes(
         include=["number"]
     ).columns.tolist()
 
-    # --------------------------------------------
-    # MULTI SELECT PLOT
-    # --------------------------------------------
+    # ------------------------------------------------
+    # SELECT COLUMNS TO PLOT
+    # ------------------------------------------------
     selected_columns = st.multiselect(
         "Select columns to plot",
         numeric_columns,
         default=["% Change"]
     )
 
-    # --------------------------------------------
+    # ------------------------------------------------
     # CHART
-    # --------------------------------------------
+    # ------------------------------------------------
     if selected_columns:
 
         st.subheader("📈 Chart")
@@ -401,9 +438,9 @@ if "result_df" in st.session_state:
             y=selected_columns
         )
 
-    # --------------------------------------------
+    # ------------------------------------------------
     # DOWNLOAD CSV
-    # --------------------------------------------
+    # ------------------------------------------------
     csv = result_df.to_csv(
         index=False
     )
