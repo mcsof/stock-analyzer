@@ -14,7 +14,6 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📈 Stock Analytics Dashboard")
 
 # =====================================================
 # SIDEBAR
