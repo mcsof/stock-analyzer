@@ -26,6 +26,8 @@ st.title("📈 Stock Analytics Dashboard")
 
 st.sidebar.header("Settings")
 
+# -----------------------------------------------------
+
 stock_input = st.sidebar.text_input(
     "Stock Ticker",
     value="AAPL"
@@ -72,6 +74,35 @@ group_days = st.sidebar.number_input(
 )
 
 # =====================================================
+# VALIDATE YAHOO LIMITS
+# =====================================================
+
+invalid = False
+
+if interval == "1m" and period not in ["1d", "5d"]:
+
+    invalid = True
+
+elif interval in ["2m", "5m", "15m", "30m"] and period == "1y":
+
+    invalid = True
+
+if invalid:
+
+    st.error(
+        """
+        Invalid Yahoo Finance combination.
+
+        Allowed examples:
+        • 5d + 5m
+        • 1mo + 15m
+        • 6mo + 1d
+        """
+    )
+
+    st.stop()
+
+# =====================================================
 # DOWNLOAD FUNCTION
 # =====================================================
 
@@ -82,7 +113,7 @@ def load_data(ticker, period, interval):
 
         df = yf.download(
 
-            tickers=ticker,
+            ticker,
 
             period=period,
 
@@ -90,14 +121,10 @@ def load_data(ticker, period, interval):
 
             auto_adjust=True,
 
-            progress=False,
-
-            prepost=True,
-
-            threads=False
+            progress=False
         )
 
-        # ---------------------------------------------
+        # -------------------------------------------------
 
         if isinstance(df.columns, pd.MultiIndex):
 
@@ -105,7 +132,7 @@ def load_data(ticker, period, interval):
                 df.columns.get_level_values(0)
             )
 
-        # ---------------------------------------------
+        # -------------------------------------------------
 
         df.dropna(inplace=True)
 
@@ -128,6 +155,12 @@ df = load_data(
 )
 
 # =====================================================
+# DEBUG INFO
+# =====================================================
+
+st.write("Downloaded Rows:", len(df))
+
+# =====================================================
 # CHECK EMPTY
 # =====================================================
 
@@ -138,13 +171,14 @@ if df.empty:
         No data found.
 
         Try:
-        - AAPL
-        - MSFT
-        - TSLA
+        • AAPL
+        • MSFT
+        • TSLA
 
-        Best settings:
-        - Period = 5d
-        - Interval = 5m
+        Best combinations:
+        • 5d + 5m
+        • 1mo + 15m
+        • 6mo + 1d
         """
     )
 
@@ -191,7 +225,9 @@ for group in grouped_dates:
 
         continue
 
-    # -------------------------------------------------
+    # =================================================
+    # LABEL
+    # =================================================
 
     date_label = " + ".join(group)
 
@@ -336,14 +372,6 @@ for group in grouped_dates:
             interval.replace("m", "")
         )
 
-    elif "h" in interval:
-
-        interval_minutes = (
-            int(
-                interval.replace("h", "")
-            ) * 60
-        )
-
     else:
 
         interval_minutes = 1440
@@ -375,7 +403,7 @@ for group in grouped_dates:
     )
 
     # =================================================
-    # SAVE RESULTS
+    # SAVE
     # =================================================
 
     results.append({
