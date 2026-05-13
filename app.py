@@ -513,158 +513,197 @@ if run_button:
         })
 
     # =================================================
-    # DATAFRAME
-    # =================================================
-
-    result_df = pd.DataFrame(results)
-
-    # =================================================
-    # SHOW TABLE
-    # =================================================
-
-    st.subheader("📋 Analysis Table")
-
-    st.dataframe(
-        result_df,
-        use_container_width=True
-    )
-
-    # =================================================
-    # DOWNLOAD CSV
-    # =================================================
-
-    csv = result_df.to_csv(
-        index=False
-    ).encode("utf-8")
-
-    st.download_button(
-
-        label="⬇ Download CSV",
-
-        data=csv,
-
-        file_name=(
-            f"{stock_input}_analysis.csv"
-        ),
-
-        mime="text/csv"
-    )
-
-    # =================================================
-    # DOWNLOAD EXCEL
-    # =================================================
-
-    excel_buffer = BytesIO()
-
-    with pd.ExcelWriter(
-        excel_buffer,
-        engine="openpyxl"
-    ) as writer:
-
-        result_df.to_excel(
-            writer,
-            index=False,
-            sheet_name="Analysis"
-        )
-
-    excel_data = excel_buffer.getvalue()
-
-    st.download_button(
-
-        label="⬇ Download Excel",
-
-        data=excel_data,
-
-        file_name=(
-            f"{stock_input}_analysis.xlsx"
-        ),
-
-        mime=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    )
-
-    # =================================================
-    # TIME TO NUMERIC
-    # =================================================
-
-    def time_to_minutes(t):
-
-        h, m = map(
-            int,
-            t.split(":")
-        )
-
-        return h * 60 + m
-
-    plot_df = result_df.copy()
-
-    plot_df[
-        "Highest Time Numeric"
-    ] = plot_df[
-        "Highest Time"
-    ].apply(
-        time_to_minutes
-    )
-
-    plot_df[
-        "Lowest Time Numeric"
-    ] = plot_df[
-        "Lowest Time"
-    ].apply(
-        time_to_minutes
-    )
-
-    # =================================================
-    # PLOT
-    # =================================================
-
-    if len(selected_plots) > 0:
-
-        st.subheader("📊 Plot")
-
-        fig, ax = plt.subplots(
-            figsize=(16, 7)
-        )
-
-        for col in selected_plots:
-
-            ax.plot(
-
-                plot_df["Date Group"],
-
-                plot_df[col],
-
-                marker='o',
-
-                label=col
-            )
-
-        ax.set_xlabel("Day")
-
-        ax.set_ylabel("Values")
-
-        ax.set_title(
-            f"{stock_input} Analytics"
-        )
-
-        plt.xticks(rotation=45)
-
-        ax.grid(True)
-
-        ax.legend()
-
-        st.pyplot(fig)
-
-    # =================================================
-    # RAW DATA
-    # =================================================
-
-    with st.expander(
-        "📄 Show Raw Downloaded Data"
-    ):
-
+    # =====================================================
+# DATAFRAME
+        # =====================================================
+        
+        result_df = pd.DataFrame(results)
+        
+        # =====================================================
+        # TRANSPOSE TABLE
+        # =====================================================
+        
+        st.subheader("📋 Analysis Table")
+        
+        transpose_df = result_df.transpose()
+        
         st.dataframe(
-            df,
-            use_container_width=True
+            transpose_df,
+            use_container_width=True,
+            height=700
         )
+        
+        # =====================================================
+        # CSV DOWNLOAD
+        # =====================================================
+        
+        csv = result_df.to_csv(
+            index=False
+        ).encode("utf-8")
+        
+        st.download_button(
+        
+            label="⬇ Download CSV",
+        
+            data=csv,
+        
+            file_name=(
+                f"{stock_input}_analysis.csv"
+            ),
+        
+            mime="text/csv"
+        )
+        
+        # =====================================================
+        # EXCEL DOWNLOAD
+        # =====================================================
+        
+        excel_buffer = BytesIO()
+        
+        with pd.ExcelWriter(
+            excel_buffer,
+            engine="openpyxl"
+        ) as writer:
+        
+            result_df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Analysis"
+            )
+        
+        excel_data = excel_buffer.getvalue()
+        
+        st.download_button(
+        
+            label="⬇ Download Excel",
+        
+            data=excel_data,
+        
+            file_name=(
+                f"{stock_input}_analysis.xlsx"
+            ),
+        
+            mime=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        )
+        
+        # =====================================================
+        # TIME TO NUMERIC
+        # =====================================================
+        
+        def time_to_minutes(t):
+        
+            h, m = map(
+                int,
+                t.split(":")
+            )
+        
+            return h * 60 + m
+        
+        plot_df = result_df.copy()
+        
+        plot_df[
+            "Highest Time Numeric"
+        ] = plot_df[
+            "Highest Time"
+        ].apply(
+            time_to_minutes
+        )
+        
+        plot_df[
+            "Lowest Time Numeric"
+        ] = plot_df[
+            "Lowest Time"
+        ].apply(
+            time_to_minutes
+        )
+        
+        # =====================================================
+        # PLOT
+        # =====================================================
+        
+        if len(selected_plots) > 0:
+        
+            st.subheader("📊 Plot")
+        
+            fig, ax = plt.subplots(
+                figsize=(20, 8)
+            )
+        
+            for col in selected_plots:
+        
+                ax.plot(
+        
+                    plot_df["Date Group"],
+        
+                    plot_df[col],
+        
+                    marker='o',
+        
+                    linewidth=3,
+        
+                    markersize=8,
+        
+                    label=col
+                )
+        
+            # -------------------------------------------------
+        
+            ax.set_xlabel(
+                "Day",
+                fontsize=14
+            )
+        
+            ax.set_ylabel(
+                "Values",
+                fontsize=14
+            )
+        
+            ax.set_title(
+                f"{stock_input} Analytics",
+                fontsize=20,
+                fontweight='bold'
+            )
+        
+            # -------------------------------------------------
+        
+            plt.xticks(
+                rotation=45,
+                fontsize=12
+            )
+        
+            plt.yticks(
+                fontsize=12
+            )
+        
+            # -------------------------------------------------
+        
+            ax.grid(
+                True,
+                linestyle='--',
+                alpha=0.7
+            )
+        
+            # -------------------------------------------------
+        
+            ax.legend(
+                fontsize=12
+            )
+        
+            # -------------------------------------------------
+        
+            st.pyplot(fig)
+        
+        # =====================================================
+        # RAW DATA
+        # =====================================================
+        
+        with st.expander(
+            "📄 Show Raw Downloaded Data"
+        ):
+        
+            st.dataframe(
+                df,
+                use_container_width=True
+            )
