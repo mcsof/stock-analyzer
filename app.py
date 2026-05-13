@@ -21,7 +21,7 @@ st.set_page_config(
 st.title("📈 Stock Analytics Dashboard")
 
 # =====================================================
-# SIDEBAR SETTINGS
+# SIDEBAR
 # =====================================================
 
 st.sidebar.header("Settings")
@@ -31,6 +31,8 @@ stock_input = st.sidebar.text_input(
     value="AAPL"
 )
 
+# -----------------------------------------------------
+
 period = st.sidebar.selectbox(
     "Period",
     [
@@ -39,11 +41,12 @@ period = st.sidebar.selectbox(
         "1mo",
         "3mo",
         "6mo",
-        "1y",
-        "2y"
+        "1y"
     ],
     index=1
 )
+
+# -----------------------------------------------------
 
 interval = st.sidebar.selectbox(
     "Interval",
@@ -54,11 +57,12 @@ interval = st.sidebar.selectbox(
         "15m",
         "30m",
         "60m",
-        "90m",
         "1d"
     ],
     index=2
 )
+
+# -----------------------------------------------------
 
 group_days = st.sidebar.number_input(
     "Group Days",
@@ -68,21 +72,54 @@ group_days = st.sidebar.number_input(
 )
 
 # =====================================================
-# DOWNLOAD DATA
+# DOWNLOAD FUNCTION
 # =====================================================
 
 @st.cache_data
 def load_data(ticker, period, interval):
 
-    df = yf.download(
-        ticker,
-        period=period,
-        interval=interval,
-        auto_adjust=True,
-        progress=False
-    )
+    try:
 
-    return df
+        df = yf.download(
+
+            tickers=ticker,
+
+            period=period,
+
+            interval=interval,
+
+            auto_adjust=True,
+
+            progress=False,
+
+            prepost=True,
+
+            threads=False
+        )
+
+        # ---------------------------------------------
+
+        if isinstance(df.columns, pd.MultiIndex):
+
+            df.columns = (
+                df.columns.get_level_values(0)
+            )
+
+        # ---------------------------------------------
+
+        df.dropna(inplace=True)
+
+        return df
+
+    except Exception as e:
+
+        st.error(f"Download Error: {e}")
+
+        return pd.DataFrame()
+
+# =====================================================
+# LOAD DATA
+# =====================================================
 
 df = load_data(
     stock_input,
@@ -91,24 +128,27 @@ df = load_data(
 )
 
 # =====================================================
-# VALIDATION
+# CHECK EMPTY
 # =====================================================
 
-if len(df) == 0:
+if df.empty:
 
-    st.error("No data found.")
+    st.error(
+        """
+        No data found.
+
+        Try:
+        - AAPL
+        - MSFT
+        - TSLA
+
+        Best settings:
+        - Period = 5d
+        - Interval = 5m
+        """
+    )
 
     st.stop()
-
-# =====================================================
-# FIX MULTI INDEX
-# =====================================================
-
-if isinstance(df.columns, pd.MultiIndex):
-
-    df.columns = df.columns.get_level_values(0)
-
-df.dropna(inplace=True)
 
 # =====================================================
 # DATE COLUMN
@@ -116,10 +156,12 @@ df.dropna(inplace=True)
 
 df["Date"] = df.index.strftime("%d %b")
 
-unique_dates = list(df["Date"].unique())
+unique_dates = list(
+    df["Date"].unique()
+)
 
 # =====================================================
-# GROUP DAYS
+# GROUP DATES
 # =====================================================
 
 grouped_dates = [
@@ -136,7 +178,7 @@ grouped_dates = [
 results = []
 
 # =====================================================
-# PROCESS DATA
+# PROCESS GROUPS
 # =====================================================
 
 for group in grouped_dates:
@@ -149,15 +191,13 @@ for group in grouped_dates:
 
         continue
 
-    # =====================================================
-    # LABEL
-    # =====================================================
+    # -------------------------------------------------
 
     date_label = " + ".join(group)
 
-    # =====================================================
+    # =================================================
     # BASIC VALUES
-    # =====================================================
+    # =================================================
 
     open_price = float(
         group_df["Open"].iloc[0]
@@ -179,21 +219,21 @@ for group in grouped_dates:
         group_df["Close"].mean()
     )
 
-    # =====================================================
+    # =================================================
     # CHANGE
-    # =====================================================
+    # =================================================
 
     total_change = (
         close_price - open_price
     )
 
     percent_change = (
-        total_change / open_price
-    ) * 100
+        (total_change / open_price) * 100
+    )
 
-    # =====================================================
+    # =================================================
     # HIGH / LOW TIMES
-    # =====================================================
+    # =================================================
 
     highest_idx = (
         group_df["High"].idxmax()
@@ -211,9 +251,9 @@ for group in grouped_dates:
         lowest_idx.strftime("%H:%M")
     )
 
-    # =====================================================
+    # =================================================
     # CROSSINGS
-    # =====================================================
+    # =================================================
 
     crossing_times = []
 
@@ -252,9 +292,9 @@ for group in grouped_dates:
 
     crossing_count = len(crossing_times)
 
-    # =====================================================
+    # =================================================
     # AVG CROSS GAP
-    # =====================================================
+    # =================================================
 
     if len(crossing_times) > 1:
 
@@ -286,9 +326,9 @@ for group in grouped_dates:
 
         avg_cross_gap = 0
 
-    # =====================================================
-    # ABOVE / BELOW AVG
-    # =====================================================
+    # =================================================
+    # INTERVAL MINUTES
+    # =================================================
 
     if "m" in interval:
 
@@ -307,6 +347,10 @@ for group in grouped_dates:
     else:
 
         interval_minutes = 1440
+
+    # =================================================
+    # ABOVE / BELOW AVG
+    # =================================================
 
     above_avg = len(
 
@@ -330,9 +374,9 @@ for group in grouped_dates:
         below_avg * interval_minutes
     )
 
-    # =====================================================
+    # =================================================
     # SAVE RESULTS
-    # =====================================================
+    # =================================================
 
     results.append({
 
@@ -393,7 +437,7 @@ for group in grouped_dates:
 result_df = pd.DataFrame(results)
 
 # =====================================================
-# DISPLAY TABLE
+# SHOW TABLE
 # =====================================================
 
 st.subheader("📋 Analysis Table")
@@ -453,7 +497,7 @@ st.download_button(
 )
 
 # =====================================================
-# TIME TO NUMERIC
+# TIME CONVERSION
 # =====================================================
 
 def time_to_minutes(t):
@@ -514,7 +558,7 @@ selected_plots = st.multiselect(
 )
 
 # =====================================================
-# PLOT
+# PLOT GRAPH
 # =====================================================
 
 if len(selected_plots) > 0:
