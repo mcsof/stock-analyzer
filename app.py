@@ -179,6 +179,8 @@ if st.button("Run Analysis"):
             "Lowest",
             "Average",
             "Crossings",
+            "Highest Time",
+            "Lowest Time",
             "Avg Crossing Gap (mins)",
             "Time Above Avg (mins)",
             "Time Below Avg (mins)",
