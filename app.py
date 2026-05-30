@@ -106,32 +106,33 @@ if st.sidebar.button("⬇ Show Downloads"):
 
 
 # =====================================================
-# ORIENTATION SETTINGS
+# ROTATE SETTINGS
 # =====================================================
 
 st.sidebar.divider()
-st.sidebar.subheader("Orientation")
+st.sidebar.subheader("Rotate")
 
-orientation = st.sidebar.radio(
-    "Select Screen Orientation",
-    ["Landscape", "Portrait"],
-    index=0
+rotate_plot = st.sidebar.checkbox(
+    "Rotate Plot",
+    value=False
 )
 
-if orientation == "Landscape":
-    default_graph_height = 700
-    default_table_height = 700
-    default_tick_angle = -35
-    legend_orientation = "h"
-    legend_x = 0
-    legend_y = -0.25
-else:
-    default_graph_height = 1200
+if rotate_plot:
+    default_graph_height = 1100
     default_table_height = 1000
-    default_tick_angle = -70
+    default_tick_angle = 0
     legend_orientation = "v"
     legend_x = 1.02
     legend_y = 1
+    bottom_margin = 100
+else:
+    default_graph_height = 800
+    default_table_height = 800
+    default_tick_angle = -45
+    legend_orientation = "h"
+    legend_x = 0
+    legend_y = -0.25
+    bottom_margin = 140
 
 
 # =====================================================
@@ -152,19 +153,19 @@ y_axis_label = st.sidebar.text_input(
 )
 
 auto_y_axis = st.sidebar.checkbox(
-    "Auto Y Axis",
+    "Auto Value Axis",
     value=True
 )
 
 y_axis_min = st.sidebar.number_input(
-    "Y Axis Min",
+    "Value Axis Min",
     value=0.0,
     step=1.0,
     disabled=auto_y_axis
 )
 
 y_axis_max = st.sidebar.number_input(
-    "Y Axis Max",
+    "Value Axis Max",
     value=500.0,
     step=1.0,
     disabled=auto_y_axis
@@ -216,7 +217,7 @@ x_tick_angle = st.sidebar.slider(
 )
 
 show_range_slider = st.sidebar.checkbox(
-    "Show X Range Slider",
+    "Show Range Slider",
     value=True
 )
 
@@ -447,7 +448,10 @@ plot_df["Lowest Time Numeric"] = plot_df["Lowest Time"].apply(time_to_minutes)
 if st.session_state.page == "table":
     st.subheader("📋 Analysis Table")
 
-    st.caption(f"Current Orientation: {orientation}")
+    if rotate_plot:
+        st.caption("Rotate Plot: ON")
+    else:
+        st.caption("Rotate Plot: OFF")
 
     transpose_df = result_df.transpose()
 
@@ -465,7 +469,10 @@ if st.session_state.page == "table":
 elif st.session_state.page == "plot":
     st.subheader("📊 Full Screen Interactive Analytics Graph")
 
-    st.caption(f"Current Orientation: {orientation}")
+    if rotate_plot:
+        st.caption("Rotate Plot: ON — value axis is horizontal")
+    else:
+        st.caption("Rotate Plot: OFF — value axis is vertical")
 
     if len(selected_plots) == 0:
         st.warning("Please select at least one graph column from the sidebar.")
@@ -501,10 +508,17 @@ elif st.session_state.page == "plot":
             st.error(f"Column not found: {col}")
             continue
 
+        if rotate_plot:
+            x_values = plot_df[col]
+            y_values = plot_df["Date Group"]
+        else:
+            x_values = plot_df["Date Group"]
+            y_values = plot_df[col]
+
         fig.add_trace(
             go.Scatter(
-                x=plot_df["Date Group"],
-                y=plot_df[col],
+                x=x_values,
+                y=y_values,
                 mode="lines+markers",
                 name=col,
                 line=dict(
@@ -525,8 +539,8 @@ elif st.session_state.page == "plot":
     if "Highest" in selected_plots:
         fig.add_trace(
             go.Scatter(
-                x=plot_df["Date Group"],
-                y=plot_df["Highest"],
+                x=plot_df["Highest"] if rotate_plot else plot_df["Date Group"],
+                y=plot_df["Date Group"] if rotate_plot else plot_df["Highest"],
                 mode="markers",
                 name="Highest Big Points",
                 marker=dict(
@@ -548,8 +562,8 @@ elif st.session_state.page == "plot":
     if "Lowest" in selected_plots:
         fig.add_trace(
             go.Scatter(
-                x=plot_df["Date Group"],
-                y=plot_df["Lowest"],
+                x=plot_df["Lowest"] if rotate_plot else plot_df["Date Group"],
+                y=plot_df["Date Group"] if rotate_plot else plot_df["Lowest"],
                 mode="markers",
                 name="Lowest Big Points",
                 marker=dict(
@@ -565,32 +579,49 @@ elif st.session_state.page == "plot":
         )
 
     # =================================================
-    # Y AXIS SETTINGS
+    # AXIS SETTINGS
     # =================================================
 
     if auto_y_axis:
-        y_axis_config = dict(
-            title=y_axis_label
+        value_axis_config = dict(
+            title=y_axis_label,
+            automargin=True
         )
     else:
-        y_axis_config = dict(
+        value_axis_config = dict(
             title=y_axis_label,
-            range=[y_axis_min, y_axis_max]
+            range=[y_axis_min, y_axis_max],
+            automargin=True
         )
 
+    if rotate_plot:
+        x_axis_config = value_axis_config
+
+        y_axis_config = dict(
+            title=x_axis_label,
+            automargin=True
+        )
+
+    else:
+        x_axis_config = dict(
+            title=x_axis_label,
+            tickangle=x_tick_angle,
+            rangeslider=dict(
+                visible=show_range_slider
+            ),
+            automargin=True
+        )
+
+        y_axis_config = value_axis_config
+
     fig.update_layout(
+        autosize=True,
         height=graph_height,
         title=f"{stock_input} Analytics Dashboard",
         title_font_size=28,
         hovermode="x unified",
         template="plotly_dark",
-        xaxis=dict(
-            title=x_axis_label,
-            tickangle=x_tick_angle,
-            rangeslider=dict(
-                visible=show_range_slider
-            )
-        ),
+        xaxis=x_axis_config,
         yaxis=y_axis_config,
         legend=dict(
             orientation=legend_orientation,
@@ -598,16 +629,29 @@ elif st.session_state.page == "plot":
             y=legend_y
         ),
         margin=dict(
-            l=70,
-            r=70,
+            l=90,
+            r=90,
             t=90,
-            b=120
+            b=bottom_margin
         )
+    )
+
+    fig.update_xaxes(
+        automargin=True
+    )
+
+    fig.update_yaxes(
+        automargin=True
     )
 
     st.plotly_chart(
         fig,
-        use_container_width=True
+        use_container_width=True,
+        config={
+            "responsive": True,
+            "displayModeBar": True,
+            "scrollZoom": True
+        }
     )
 
 
@@ -617,8 +661,6 @@ elif st.session_state.page == "plot":
 
 elif st.session_state.page == "downloads":
     st.subheader("⬇ Download Results")
-
-    st.caption(f"Current Orientation: {orientation}")
 
     csv = result_df.to_csv(index=False).encode("utf-8")
 
