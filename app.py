@@ -34,18 +34,14 @@ period = st.sidebar.text_input(
     value="5d"
 ).lower().strip()
 
-st.sidebar.caption(
-    "Examples: 1d, 2d, 5d, 1mo, 3mo, 1y"
-)
+st.sidebar.caption("Examples: 1d, 2d, 5d, 1mo, 3mo, 1y")
 
 interval = st.sidebar.text_input(
     "Enter Interval",
     value="5m"
 ).lower().strip()
 
-st.sidebar.caption(
-    "Examples: 1m, 2m, 5m, 15m, 30m, 60m, 1h, 1d"
-)
+st.sidebar.caption("Examples: 1m, 2m, 5m, 15m, 30m, 60m, 1h, 1d")
 
 group_days = st.sidebar.number_input(
     "How Many Days Per Group?",
@@ -114,12 +110,11 @@ if st.sidebar.button("⬇ Show Downloads"):
 # =====================================================
 
 @st.cache_data
-def load_data(ticker, period, interval):
-
+def load_data(ticker, selected_period, selected_interval):
     df = yf.download(
         ticker,
-        period=period,
-        interval=interval,
+        period=selected_period,
+        interval=selected_interval,
         auto_adjust=True,
         progress=False
     )
@@ -133,11 +128,10 @@ def load_data(ticker, period, interval):
 
 
 # =====================================================
-# HELPER FUNCTION
+# HELPER FUNCTIONS
 # =====================================================
 
 def interval_to_minutes(interval_value):
-
     interval_value = interval_value.lower().strip()
 
     try:
@@ -156,10 +150,8 @@ def interval_to_minutes(interval_value):
         return 1440
 
 
-def time_to_minutes(t):
-
-    h, m = map(int, t.split(":"))
-
+def time_to_minutes(time_value):
+    h, m = map(int, time_value.split(":"))
     return h * 60 + m
 
 
@@ -170,19 +162,12 @@ def time_to_minutes(t):
 if "loaded_data" not in st.session_state:
     st.session_state.loaded_data = None
 
-if "result_df" not in st.session_state:
-    st.session_state.result_df = None
-
-if "plot_df" not in st.session_state:
-    st.session_state.plot_df = None
-
 
 # =====================================================
 # LOAD DATA
 # =====================================================
 
 if run_button:
-
     try:
         st.session_state.loaded_data = load_data(
             stock_input,
@@ -234,11 +219,8 @@ interval_minutes = interval_to_minutes(interval)
 # PROCESS GROUPS
 # =====================================================
 
- for group in grouped_dates:
-
-    group_df = df[
-        df["OnlyDate"].isin(group)
-    ].copy()
+for group in grouped_dates:
+    group_df = df[df["OnlyDate"].isin(group)].copy()
 
     if len(group_df) == 0:
         continue
@@ -267,7 +249,6 @@ interval_minutes = interval_to_minutes(interval)
     crossing_times = []
 
     for i in range(1, len(group_df)):
-
         prev_price = group_df["Close"].iloc[i - 1]
         curr_price = group_df["Close"].iloc[i]
 
@@ -289,7 +270,6 @@ interval_minutes = interval_to_minutes(interval)
     crossing_count = len(crossing_times)
 
     if len(crossing_times) > 1:
-
         gaps = []
 
         for i in range(1, len(crossing_times)):
@@ -304,13 +284,8 @@ interval_minutes = interval_to_minutes(interval)
     else:
         avg_cross_gap = 0
 
-    above_avg = len(
-        group_df[group_df["Close"] > average_price]
-    )
-
-    below_avg = len(
-        group_df[group_df["Close"] < average_price]
-    )
+    above_avg = len(group_df[group_df["Close"] > average_price])
+    below_avg = len(group_df[group_df["Close"] < average_price])
 
     time_above_avg = above_avg * interval_minutes
     time_below_avg = below_avg * interval_minutes
@@ -348,16 +323,12 @@ plot_df = result_df.copy()
 plot_df["Highest Time Numeric"] = plot_df["Highest Time"].apply(time_to_minutes)
 plot_df["Lowest Time Numeric"] = plot_df["Lowest Time"].apply(time_to_minutes)
 
-st.session_state.result_df = result_df
-st.session_state.plot_df = plot_df
-
 
 # =====================================================
 # TABLE SCREEN
 # =====================================================
 
 if st.session_state.page == "table":
-
     st.subheader("📋 Analysis Table")
 
     transpose_df = result_df.transpose()
@@ -374,7 +345,6 @@ if st.session_state.page == "table":
 # =====================================================
 
 elif st.session_state.page == "plot":
-
     st.subheader("📊 Full Screen Interactive Analytics Graph")
 
     if len(selected_plots) == 0:
@@ -407,7 +377,6 @@ elif st.session_state.page == "plot":
     ]
 
     for i, col in enumerate(selected_plots):
-
         if col not in plot_df.columns:
             st.error(f"Column not found: {col}")
             continue
@@ -456,7 +425,6 @@ elif st.session_state.page == "plot":
 # =====================================================
 
 elif st.session_state.page == "downloads":
-
     st.subheader("⬇ Download Results")
 
     csv = result_df.to_csv(index=False).encode("utf-8")
