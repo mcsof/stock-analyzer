@@ -52,7 +52,7 @@ group_days = st.sidebar.number_input(
 
 
 # =====================================================
-# PLOT OPTIONS
+# PLOT COLUMNS
 # =====================================================
 
 plot_columns = [
@@ -103,6 +103,122 @@ if st.sidebar.button("📊 Show Full Screen Plot"):
 
 if st.sidebar.button("⬇ Show Downloads"):
     st.session_state.page = "downloads"
+
+
+# =====================================================
+# ORIENTATION SETTINGS
+# =====================================================
+
+st.sidebar.divider()
+st.sidebar.subheader("Orientation")
+
+orientation = st.sidebar.radio(
+    "Select Screen Orientation",
+    ["Landscape", "Portrait"],
+    index=0
+)
+
+if orientation == "Landscape":
+    default_graph_height = 700
+    default_table_height = 700
+    default_tick_angle = -35
+    legend_orientation = "h"
+    legend_x = 0
+    legend_y = -0.25
+else:
+    default_graph_height = 1200
+    default_table_height = 1000
+    default_tick_angle = -70
+    legend_orientation = "v"
+    legend_x = 1.02
+    legend_y = 1
+
+
+# =====================================================
+# PLOT SETTINGS
+# =====================================================
+
+st.sidebar.divider()
+st.sidebar.subheader("Plot Settings")
+
+x_axis_label = st.sidebar.text_input(
+    "X Axis Label",
+    value="Date Groups"
+)
+
+y_axis_label = st.sidebar.text_input(
+    "Y Axis Label",
+    value="Values"
+)
+
+auto_y_axis = st.sidebar.checkbox(
+    "Auto Y Axis",
+    value=True
+)
+
+y_axis_min = st.sidebar.number_input(
+    "Y Axis Min",
+    value=0.0,
+    step=1.0,
+    disabled=auto_y_axis
+)
+
+y_axis_max = st.sidebar.number_input(
+    "Y Axis Max",
+    value=500.0,
+    step=1.0,
+    disabled=auto_y_axis
+)
+
+graph_height = st.sidebar.slider(
+    "Graph Height",
+    min_value=400,
+    max_value=1800,
+    value=default_graph_height,
+    step=50
+)
+
+table_height = st.sidebar.slider(
+    "Table Height",
+    min_value=400,
+    max_value=1600,
+    value=default_table_height,
+    step=50
+)
+
+line_width = st.sidebar.slider(
+    "Line Width",
+    min_value=1,
+    max_value=10,
+    value=4
+)
+
+marker_size = st.sidebar.slider(
+    "Marker Size",
+    min_value=4,
+    max_value=30,
+    value=12
+)
+
+high_low_marker_size = st.sidebar.slider(
+    "High / Low Marker Size",
+    min_value=8,
+    max_value=60,
+    value=24
+)
+
+x_tick_angle = st.sidebar.slider(
+    "X Label Angle",
+    min_value=-90,
+    max_value=0,
+    value=default_tick_angle,
+    step=5
+)
+
+show_range_slider = st.sidebar.checkbox(
+    "Show X Range Slider",
+    value=True
+)
 
 
 # =====================================================
@@ -331,12 +447,14 @@ plot_df["Lowest Time Numeric"] = plot_df["Lowest Time"].apply(time_to_minutes)
 if st.session_state.page == "table":
     st.subheader("📋 Analysis Table")
 
+    st.caption(f"Current Orientation: {orientation}")
+
     transpose_df = result_df.transpose()
 
     st.dataframe(
         transpose_df,
         use_container_width=True,
-        height=900
+        height=table_height
     )
 
 
@@ -346,6 +464,8 @@ if st.session_state.page == "table":
 
 elif st.session_state.page == "plot":
     st.subheader("📊 Full Screen Interactive Analytics Graph")
+
+    st.caption(f"Current Orientation: {orientation}")
 
     if len(selected_plots) == 0:
         st.warning("Please select at least one graph column from the sidebar.")
@@ -389,28 +509,99 @@ elif st.session_state.page == "plot":
                 name=col,
                 line=dict(
                     color=colors[i % len(colors)],
-                    width=4
+                    width=line_width
                 ),
                 marker=dict(
                     symbol=markers[i % len(markers)],
-                    size=12
+                    size=marker_size
                 )
             )
         )
 
+    # =================================================
+    # SPECIAL HIGH POINT MARKERS
+    # =================================================
+
+    if "Highest" in selected_plots:
+        fig.add_trace(
+            go.Scatter(
+                x=plot_df["Date Group"],
+                y=plot_df["Highest"],
+                mode="markers",
+                name="Highest Big Points",
+                marker=dict(
+                    color="lime",
+                    size=high_low_marker_size,
+                    symbol="triangle-up",
+                    line=dict(
+                        color="white",
+                        width=2
+                    )
+                )
+            )
+        )
+
+    # =================================================
+    # SPECIAL LOW POINT MARKERS
+    # =================================================
+
+    if "Lowest" in selected_plots:
+        fig.add_trace(
+            go.Scatter(
+                x=plot_df["Date Group"],
+                y=plot_df["Lowest"],
+                mode="markers",
+                name="Lowest Big Points",
+                marker=dict(
+                    color="red",
+                    size=high_low_marker_size,
+                    symbol="triangle-down",
+                    line=dict(
+                        color="white",
+                        width=2
+                    )
+                )
+            )
+        )
+
+    # =================================================
+    # Y AXIS SETTINGS
+    # =================================================
+
+    if auto_y_axis:
+        y_axis_config = dict(
+            title=y_axis_label
+        )
+    else:
+        y_axis_config = dict(
+            title=y_axis_label,
+            range=[y_axis_min, y_axis_max]
+        )
+
     fig.update_layout(
-        height=900,
+        height=graph_height,
         title=f"{stock_input} Analytics Dashboard",
         title_font_size=28,
         hovermode="x unified",
         template="plotly_dark",
         xaxis=dict(
-            title="Date Groups",
-            tickangle=-45,
-            rangeslider=dict(visible=True)
+            title=x_axis_label,
+            tickangle=x_tick_angle,
+            rangeslider=dict(
+                visible=show_range_slider
+            )
         ),
-        yaxis=dict(
-            title="Values"
+        yaxis=y_axis_config,
+        legend=dict(
+            orientation=legend_orientation,
+            x=legend_x,
+            y=legend_y
+        ),
+        margin=dict(
+            l=70,
+            r=70,
+            t=90,
+            b=120
         )
     )
 
@@ -426,6 +617,8 @@ elif st.session_state.page == "plot":
 
 elif st.session_state.page == "downloads":
     st.subheader("⬇ Download Results")
+
+    st.caption(f"Current Orientation: {orientation}")
 
     csv = result_df.to_csv(index=False).encode("utf-8")
 
